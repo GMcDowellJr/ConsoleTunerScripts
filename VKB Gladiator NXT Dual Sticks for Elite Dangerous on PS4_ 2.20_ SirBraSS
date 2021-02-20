@@ -72,7 +72,7 @@ main {
 
 /*	Stick response curves courtesy of J2Kbr
 	set_val(PS4_LX, stick_response(PS4_LX));
-    set_val(PS4_LY, stick_response(PS4_LY));
+        set_val(PS4_LY, stick_response(PS4_LY));
 	set_val(PS4_RX, stick_response(PS4_RX));
 	set_val(PS4_RY, stick_response(PS4_RY));*/
 
