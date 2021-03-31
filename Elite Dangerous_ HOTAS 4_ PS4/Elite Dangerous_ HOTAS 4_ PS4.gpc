@@ -1,0 +1,127 @@
+#pragma METAINFO("Elite Dangerous_ HOTAS 4_ PS4", 1, 01 ,"DeviateSquirrel")
+#include <ps4.gph>
+
+// ----------------------Input map---------------------------
+
+//-----------------------Timers-----------------------------
+#define tDelayBtn			70		// delay between following button events
+#define tDelayBtnRelease	120		// delay till release
+#define tHold				200		// button hold time
+//------------------------MAIN------------------------------
+
+#define ThrottleDeadZone	2.0
+#define YawDeadZone			2.0
+#define PitchDeadZone		2.0
+#define RollDeadZone		2.0
+
+main {
+	
+	// Invert Throttle Axis
+	if (abs(get_actual(PS4_RX)) > ThrottleDeadZone) {
+		set_val(PS4_RX, -1f*get_actual(PS4_RX));
+	} else {
+		set_val(PS4_RX, 0.0);
+	}
+	
+	// Small Deadzones
+		// Yaw
+		if (abs(get_actual(PS4_RY)) > YawDeadZone) {
+			set_val(PS4_RY, -1f*get_actual(PS4_RY));
+		} else {
+			set_val(PS4_RY, 0.0);
+		}
+		// Roll
+		if (abs(get_actual(PS4_LX)) > RollDeadZone) {
+			set_val(PS4_LX, get_actual(PS4_LX));
+		} else {
+			set_val(PS4_LX, 0.0);
+		}
+		// Pitch
+		if (abs(get_actual(PS4_LY)) > PitchDeadZone) {
+			set_val(PS4_LY, get_actual(PS4_LY));
+		} else {
+			set_val(PS4_LY, 0.0);
+		}
+	
+	// set misc inputs to 0.0
+	set_val(PS4_TOUCH1X, 0.0);
+	set_val(PS4_TOUCH1Y, 0.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	
+	// Assign Throttle Rudder to TRIANGLE-R2,and TRIANGLE-L2	
+	if (abs(get_actual(POINT_2_Y)) > 1.0) {
+		if (get_actual(POINT_2_Y) < 0.0) {
+			combo_run (Rudder_Left);
+			set_val(POINT_2_Y, 0.0);
+		}
+		if (get_actual(POINT_2_Y) > 0.0) {
+			combo_run (Rudder_Right);
+			set_val(POINT_2_Y, 0.0);
+		}
+	}
+	
+	// Rapid Pip Change
+	if (check_active(PS4_LEFT, tHold)){
+		set_val(PS4_LEFT, 0.0);
+		combo_run(RapidLeft);
+	}
+	if (check_active(PS4_UP, tHold)){
+		set_val(PS4_UP, 0.0);
+		combo_run(RapidUp);
+	}
+	if (check_active(PS4_RIGHT, tHold)){
+		set_val(PS4_RIGHT, 0.0);
+		combo_run(RapidRight);
+	}
+	
+}
+
+//	Rapid Pip Combos
+//	Rapid Sys Pips
+combo RapidLeft{
+	set_val(PS4_LEFT, 100);
+	wait(45);
+	set_val(PS4_LEFT, 0);
+	wait(60);
+}
+
+//	Rapid Eng Pips
+combo RapidUp{
+	set_val(PS4_UP, 100);
+	wait(45);
+	set_val(PS4_UP, 0);
+	wait(60);
+}
+
+//	Rapid Wep Pips
+combo RapidRight{
+	set_val(PS4_RIGHT, 100);
+	wait(45);
+	set_val(PS4_RIGHT, 0);
+	wait(60);
+}
+
+combo Rudder_Left {
+	set_val(PS4_TRIANGLE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100.0);
+	set_val(PS4_CIRCLE, 100.0);
+	set_val(PS4_R2, 100.0);
+	wait(tDelayBtnRelease);
+	set_val(PS4_TRIANGLE, 0.0);
+	set_val(PS4_CIRCLE, 0.0);
+	set_val(PS4_R2, 0.0);
+}
+
+combo Rudder_Right {
+	set_val(PS4_TRIANGLE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100.0);
+	set_val(PS4_CIRCLE, 100.0);
+	set_val(PS4_L2, 100.0);
+	wait(tDelayBtnRelease);
+	set_val(PS4_TRIANGLE, 0.0);
+	set_val(PS4_CIRCLE, 0.0);
+	set_val(PS4_L2, 0.0);
+}
