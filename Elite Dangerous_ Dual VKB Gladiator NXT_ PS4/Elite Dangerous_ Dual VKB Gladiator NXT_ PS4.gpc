@@ -2,61 +2,38 @@
 #include <ps4.gph>
 #include <display.gph>
 
-/* Currently in evaluation. Published for posterity and for general evaluation
-and constructive criticism by the community. Any suggestions for reducing bytecode
-glut would be appreciated.
+/* Currently in evaluation. Published for posterity and for general evaluation and constructive criticism by the community. Any suggestions for reducing bytecode glut would be appreciated.
 
-NOTE: Right Stick configured to USB-B (Input 2) for testing, as Input 3 is also
-the programming port, and testing through Gtuner requires PC connection at
-USB C, and remapping should not be assigned while this is in progress. After testing,
-change RS port assignment variable to USB-C.
+NOTE: Right Stick configured to USB-B (Input 2) for testing, as Input 3 is also the programming port, and testing through Gtuner requires PC connection at USB C, and remapping should not be assigned while this is in progress. After testing, change RS port assignment variable to USB-C.
 
-This script was developed for VKB Gladiator NXT Sticks in a dual stick (HOSAS)
-setup, specifically with the Left stick being a Premium stick. This setup can use
-either Premium or standard stick on the right stick.
+This script was developed for VKB Gladiator NXT Sticks in a dual stick (HOSAS) setup, specifically with the Left stick being a Premium stick. This setup can use either Premium or standard stick on the right stick.
 
-In E:D Bindings, you will have to configure all axes differently. In this code,
-due to the nature of the default stick setups by VKB, the sticks default to Left
-thumb stick inputs into the T2. In order for axes inputs to not step on each other, 
-the assignments had to distinct from each other. Also, GPC2 lanugage doesn't allow 
-multiple remap layouts even if they're assigned to different USB ports. Accordingly,
-I bound left stick controls (assumed to be for translational axes of vertical, lateral, 
+In E:D Bindings, you will have to configure all axes differently. In this code, due to the nature of the default stick setups by VKB, the sticks default to Left thumb stick inputs into the T2. In order for axes inputs to not step on each other, the assignments had to distinct from each other. Also, GPC2 lanugage doesn't allow multiple remap layouts even if they're assigned to different USB ports. Accordingly, I bound left stick controls (assumed to be for translational axes of vertical, lateral, 
 and throttle) to L2/R2, L3/R3, and Right Stick Y respectively.
 
-Right stick by default is x and y on Left thumb stick x and y, and twist Rz is 
-on the Right thumb stick y-axis. Bindings should be made accordingly.
+Right stick by default is x and y on Left thumb stick x and y, and twist Rz is on the Right thumb stick y-axis. Bindings should be made accordingly.
 
-Experimental stick response curves courtesy of J2Kbr.
+Experimental stick response curves courtesy of J2Kbr. */
 
-Usage:
+/* Usage:
 *Left stick plugged into USB-A.
 *Right stick plugged into USB-C using the OTG cable provided with the Titan
 Connection kit, or any other compatible OTG cable.
 
-This script does not dictate how you bind your controls in Elite Dangerous, but
-seeks to let you choose your own bindings. E:D allows a maximum of 32 discrete 
-buttons. However, as the DS4 does not have that many, the use of combos allows
-that to be extended in this case. There are no combo repeats.
+This script does not dictate how you bind your controls in Elite Dangerous, but seeks to let you choose your own bindings. E:D allows a maximum of 32 discrete  buttons. However, as the DS4 does not have that many, the use of combos allows that to be extended in this case. There are no combo repeats.
 
-Also, assumed that user has verified that the analogue hat function is enabled
-through VKB's software on the premium stick. Also, the analogue mini-hat axes are 
-on buttons 5 and 8 (R2 and L2 respectively). Left stick has these bound to Gyro, 
-and right stick has the POV set to discrete and the axes for the analogue POV 
-disabled so that it won't interfere with the X-axis on the left stick.
+Also, assumed that user has verified that the analogue hat function is enabled through VKB's software on the premium stick. Also, the analogue mini-hat axes are on buttons 5 and 8 (R2 and L2 respectively). Left stick has these bound to Gyro, and right stick has the POV set to discrete and the axes for the analogue POV disabled so that it won't interfere with the X-axis on the left stick.
 
-Once TM HOTAS 4 output profile is supported, much of the issues here will go away 
-due to the additional configurability available.
+Once TM HOTAS 4 output profile is supported, much of the issues here will go away due to the additional configurability available.
 
-Buttons not visible to T2 are the 3 function buttons on the base, the rotary 
-encoders, the rapid fire trigger on the premium stick, and the POV hat push buttons.
-Also, due to some kind of interference, use of the standard stick shaft switch is also inoperable.
+Buttons not visible to T2 are the 3 function buttons on the base, the rotary encoders, the rapid fire trigger on the premium stick, and the POV hat push buttons. Also, due to some kind of interference, use of the standard stick shaft switch is also inoperable.
 
 */
 
 //-----------------------Timers-----------------------------
-#define tDelayBtn 70   // delay between following button events
-#define tDelayBtnrelease 120 //delay till button release
-
+#define tDelayBtn			70	// delay between following button events
+#define tDelayBtnrelease	120	// delay till button release
+#define tHold				200	// button hold time
 //------------------------MAIN------------------------------
 
 //	Port variables for port checking
@@ -92,43 +69,50 @@ bool HeadlookMode = 0;
 bool LSRF_active = 0;
 bool LSShaftPush_active = 0;
 
+// Normalize ACCEL_2_Y
+fix32 ACCEL_2_Y_Rest;
+
 init {
+	// check ports
 	Port2DS4 = find_DS4(); // Is a DS4 connected to port 2
 	if (Port2DS4)
 	{
 		RS_Port = 3; // If a DS4 is on Port 2, then Right Stick is on Port 3
 		combo_run(RSPort3);
+		printf("RSPort3");
 	}
 	else if (!Port2DS4)
 	{
 		RS_Port = 2; // If no DS4 is on Port 2, then T2 is connected for testing, and RS should be set to port 2
 		combo_run(RSPort2);
+		printf("RSPort2");
 	}	
 }
-main {	// OLD STUFF
 
-/*	Stick response curves courtesy of J2Kbr
-	set_val(PS4_LX, stick_response(PS4_LX));
-    set_val(PS4_LY, stick_response(PS4_LY));
-	set_val(PS4_RX, stick_response(PS4_RX));
-	set_val(PS4_RY, stick_response(PS4_RY));*/
-
-/*//	Set Mini stick centering and suppress Gyro output
+main {	//	OLD STUFF
 	
-	Mini_X_val = get_actual(PS4_GYROX);
-	Mini_Y_val = get_actual(PS4_GYROY);
-	set_val(PS4_GYROX, clamp(abs((Mini_X_val-50.5)/5.0), 0.0, 10.0));
-	set_val(PS4_ACCX, clamp((Mini_Y_val/2.0)-25.0,-25.0,25.0));
-	set_val(PS4_GYROY, clamp(abs((Mini_X_val-50.5)/5.0),0.0,10.0));
+	/*	Stick response curves courtesy of J2Kbr
+set_val(PS4_LX, stick_response(PS4_LX));
+set_val(PS4_LY, stick_response(PS4_LY));
+set_val(PS4_RX, stick_response(PS4_RX));
+	set_val(PS4_RY, stick_response(PS4_RY));*/
+	
+	/*//	Set Mini stick centering and suppress Gyro output
+
+Mini_X_val = get_actual(PS4_GYROX);
+Mini_Y_val = get_actual(PS4_GYROY);
+set_val(PS4_GYROX, clamp(abs((Mini_X_val-50.5)/5.0), 0.0, 10.0));
+set_val(PS4_ACCX, clamp((Mini_Y_val/2.0)-25.0,-25.0,25.0));
+set_val(PS4_GYROY, clamp(abs((Mini_X_val-50.5)/5.0),0.0,10.0));
 	set_val(PS4_ACCY, clamp(((Mini_X_val/2.0)-25.0),-25.0,25.0)); */
 }
 
-main {	// AX Stuff
-
-//	Set Gauss Config
+main {	//	AX Stuff
+	
+	//	Set Gauss Config
 	/* Gauss Config:
-	1 = 3m1s WF
-	2 = 2m2s CE
+1 = 3m1s WF
+2 = 2m2s CE
 	3 = 1m3s CE/WF */
 	if (event_active(PADDLE_2) && get_port(PADDLE_2) == RS_Port && GaussConfig !=1)
 	{
@@ -136,11 +120,13 @@ main {	// AX Stuff
 		tTrigger1 = 725;
 		GaussConfig = 1;
 		RSComboMode = 1;
+		printf("GaussConfig = 1");
 	}
 	else if (event_active(PADDLE_2) && get_port(PADDLE_2) == RS_Port && GaussConfig == 1)
 	{
 		GaussConfig = 0;
 		RSComboMode = 0;
+		printf("GaussConfig = 0");
 	}
 	
 	if (event_active(PADDLE_3) && get_port(PADDLE_3) == RS_Port && GaussConfig !=2)
@@ -149,11 +135,13 @@ main {	// AX Stuff
 		tTrigger1 = 800;
 		GaussConfig = 2;
 		RSComboMode = 1;
+		printf("GaussConfig = 2");
 	}
 	else if (event_active(PADDLE_3) && get_port(PADDLE_3) == RS_Port && GaussConfig == 2)
 	{
 		GaussConfig = 0;
 		RSComboMode = 0;
+		printf("GaussConfig = 0");
 	}
 	
 	if (event_active(PADDLE_4) && get_port(PADDLE_4) == RS_Port && GaussConfig !=3)
@@ -162,13 +150,15 @@ main {	// AX Stuff
 		tTrigger1 = 550;
 		GaussConfig = 3;
 		RSComboMode = 1;
+		printf("GaussConfig = 3");
 	}
 	else if (event_active(PADDLE_4) && get_port(PADDLE_4) == RS_Port && GaussConfig == 3)
 	{
 		GaussConfig = 0;
 		RSComboMode = 0;
+		printf("GaussConfig = 0");
 	}
-
+	
 	if (GaussConfig == 1)
 	{
 		if (HeadlookMode)
@@ -217,20 +207,23 @@ main {	// AX Stuff
 	tTrigger2 = 1225 - tTrigger1;
 }
 
-main {	// Left Stick Axes Programming
+main {	//	Left Stick Axes Programming
 	
 	//	Left Stick X-Axis bound to L3 and R3
-	if (get_actual(ACCEL_2_X))
+	//	lateral thrusters
+	set_val(PS4_R2, 0.0);
+	set_val(PS4_L2, 0.0);
+	if (get_actual(ACCEL_2_X))	
 	{
 		if (get_port(ACCEL_2_X) == LS_Port)
 		{
 			LS_X_val = get_actual(ACCEL_2_X);
 			set_val(ACCEL_2_X, 0.0);
-			if (LS_X_val <= -10.0)
+			if (LS_X_val <= -1.0)
 			{
 				set_val(PS4_L3, abs(LS_X_val));
 			}
-			if (LS_X_val >= 10.0)
+			if (LS_X_val >= 1.0)
 			{
 				set_val(PS4_R3, abs(LS_X_val));
 			}
@@ -238,38 +231,44 @@ main {	// Left Stick Axes Programming
 	}
 	
 	//	Left Stick Z-Axis bound to L2 and R2
+	//	thrust/ throttle (need modifier for super cruise)
 	if (get_actual(ACCEL_2_Z))
 	{
 		if (get_port(ACCEL_2_Z) == LS_Port)
 		{
 			LS_Z_val = get_actual(ACCEL_2_Z);
 			set_val(ACCEL_2_Z, 0.0);
-			if (LS_Z_val <= -9.0)
+			if (LS_Z_val <= -1.0)
 			{
 				set_val(PS4_L2, abs(LS_Z_val));
 			}
-			if (LS_Z_val >= 9.0)
+			if (LS_Z_val >= 1.0)
 			{
 				set_val(PS4_R2, abs(LS_Z_val));
 			}
 		}
 	}
-
+	
 	//	Left Stick Y-Axis
+	//	vertical thrusters
 	if (get_actual(ACCEL_2_Y))
 	{
 		if (get_port(ACCEL_2_Y) == LS_Port)
 		{
 			LS_Y_val = get_actual(ACCEL_2_Y);
-			set_val(ACCEL_2_Y, 0.0);
-			set_val(PS4_RY, LS_Y_val);
+			if (abs(LS_Y_val) > 0.10) { // small deadzone
+				set_val(ACCEL_2_Y, 0.0);
+				set_val(PS4_RY, LS_Y_val);
+			}
 		}
 	}
 }
 
-main {	// Right Stick Axes Programming	
+main {	//	Right Stick Axes Programming	
+	set_val(PS4_RX, 0.0);
 	//	Right Stick Twist Z Axis
 	//	Needed because Left stick y is stepping on PS4_RY binding to RX
+	//	yaw axis
 	if (get_actual(PS4_RY))
 	{
 		if (get_port(PS4_RY) == RS_Port)
@@ -279,1158 +278,1164 @@ main {	// Right Stick Axes Programming
 	}
 	
 	//	Right Stick Y Axis on controller is being stepped on
-	if (get_actual(PS4_RY) && get_port(PS4_RY) == 2 && RS_Port == 3)
+	//	pitch axis
+	if (get_actual(PS4_LY) && get_port(PS4_LY) == RS_Port)
 	{
-		set_val(PS4_RY, get_actual(PS4_RY));
+		set_val(PS4_LY, get_actual(PS4_LY));
 	}
 }
 
-main {	// Button combos
-	//	POV Rapid Pips & Headlook Pips
-		//	POV Left
-		if (get_actual(PS4_LEFT) && get_port(PS4_LEFT) == LS_Port && !HeadlookMode)
-		{
-			set_val(PS4_LEFT, 0.0);
-			combo_run(RapidLeft);
-		}
-		
-		if (get_actual(PS4_LEFT) && get_port(PS4_LEFT) == RS_Port && HeadlookMode)
-		{
-			set_val(PS4_LEFT, 0.0);
-			combo_run(HLRapidLeft);
-		}
-		
-		//	POV Up
-		if (get_actual(PS4_UP) && get_port(PS4_UP) == LS_Port && !HeadlookMode)
-		{
-			set_val(PS4_UP, 0.0);
-			combo_run(RapidUp);
-		}
-		
-		if (get_actual(PS4_UP) && get_port(PS4_UP) == RS_Port && HeadlookMode)
-		{
-			set_val(PS4_UP, 0.0);
-			combo_run(HLRapidUp);
-		}
-		
-		//	POV Right
-		if (get_actual(PS4_RIGHT) && get_port(PS4_RIGHT) == LS_Port && !HeadlookMode)
-		{
-			set_val(PS4_RIGHT, 0.0);
-			combo_run(RapidRight);
-		}
-		
-		if (get_actual(PS4_RIGHT) && get_port(PS4_RIGHT) == RS_Port && HeadlookMode)
-		{
-			set_val(PS4_RIGHT, 0.0);
-			combo_run(HLRapidRight);
-		}
-		
-		//	POV Down
-		if (get_actual(PS4_DOWN) && get_port(PS4_DOWN) == RS_Port && HeadlookMode)
-		{
-			set_val(PS4_DOWN, 0.0);
-			combo_run(HLRapidDown);
-		}
+main {	//	Hat Rapid Pips & Headlook
+	//	Hat Left
+	if (check_active(PS4_LEFT, tHold) && get_port(PS4_LEFT) == RS_Port)
+	{
+		set_val(PS4_LEFT, 0.0);
+		combo_run(RapidLeft);
 	}
 	
-main {	// Right Stick Combos and Assignments
-		//	Trigger
-		if (get_actual(PS4_SQUARE) && get_port(PS4_SQUARE) == RS_Port && !GaussCombo)
-		{
-			set_val(PS4_SQUARE, 0.0);
-			set_val(PS4_R1, get_actual(PS4_SQUARE));
-		}
-		else if (get_actual(PS4_SQUARE) && get_port(PS4_SQUARE) == RS_Port && GaussCombo)
-		{
-			set_val(PS4_SQUARE, 0.0);
-		}
-		
-		//	2nd Stage Trigger -- disable
-		if (get_actual(PS4_CROSS) && get_port(PS4_CROSS) == RS_Port)
-		{
-			set_val(PS4_CROSS, 0.0);
-		}
-		
-		//	Index
-		if (event_active(PS4_TRIANGLE) && get_port(PS4_TRIANGLE) == RS_Port)
-		{
-			set_val(PS4_TRIANGLE, 0.0);
-			combo_run(Chaff);
-		}
-		else if (get_actual(PS4_TRIANGLE) && get_port(PS4_TRIANGLE) == RS_Port)
-		{
-			set_val(PS4_TRIANGLE, 0.0);	
-		}
-		
-		//	Pinkie
-		if (event_active(PS4_L1) && get_port(PS4_L1) == RS_Port)
-		{
-			set_val(PS4_L1, 0.0);
-			combo_run(Hardpoints);
-		}
-		else if (get_actual(PS4_L1) && get_port(PS4_L1) == RS_Port)
-		{
-			set_val(PS4_L1, 0.0);
-		}
-		
-		//	Red Thumb
-		if (get_actual(PS4_CIRCLE) && get_port(PS4_CIRCLE) == RS_Port && !RSComboMode)
-		{
-			set_val(PS4_CIRCLE, 0.0);
-			set_val(PS4_L1, get_actual(PS4_CIRCLE));
-		}
-		else if (get_actual(PS4_CIRCLE) && get_port(PS4_CIRCLE) == RS_Port && RSComboMode)
-		{
-			set_val(PS4_CIRCLE, 0.0);
-			combo_run(GaussCombo);
-		}
-		else if (check_release(PS4_CIRCLE, 20) && RSComboMode)
-		{
-			set_val(PS4_CIRCLE, 0.0);
-			combo_stop(GaussCombo);
-		}
-		
-		//	Shaft Button 
-		if (event_active(PADDLE_1) && get_port(PADDLE_1) == RS_Port)
-		{
-			set_val(PADDLE_1, 0.0);
-			combo_run(FA_toggle);
-		}
-		
-		//	Center Hat
-			//	Left
-			if (event_active(PS4_TOUCH) && get_port(PS4_TOUCH) == RS_Port)
-			{
-				set_val(PS4_TOUCH, 0.0);
-				combo_run(Prev_FG);
-			}
-			else if (get_actual(PS4_TOUCH) && get_port(PS4_TOUCH) == RS_Port)
-			{
-				set_val(PS4_TOUCH, 0.0);
-			}
-			
-			//	Right
-			if (event_active(PS4_SHARE) && get_port(PS4_SHARE) == RS_Port)
-			{
-				set_val(PS4_SHARE, 0.0);
-				combo_run(Next_FG);
-			}
-			else if (get_actual(PS4_SHARE) && get_port(PS4_SHARE) == RS_Port)
-			{
-				set_val(PS4_SHARE, 0.0);
-			}
-			
-			//	Up
-			if (event_active(PS4_R1) && get_port(PS4_R1) == RS_Port)
-			{
-				set_val(PS4_R1, 0.0);
-				combo_run(SelectTargetAhead);
-			}
-			else if (get_actual(PS4_R1) && get_port(PS4_R1) == RS_Port)
-			{
-				set_val(PS4_R1, 0.0);
-			}
-			
-			//	Down
-			if (event_active(BUTTON_19) && get_port(BUTTON_19) == RS_Port)
-			{
-				set_val(BUTTON_19, 0.0);
-				combo_run(SelectNextSystem);
-			}
-			else if (get_actual(BUTTON_19) && get_port(BUTTON_19) == RS_Port)
-			{
-				set_val(BUTTON_19, 0.0);
-			}
-			
-		//	Right Hat			
-			//	Left
-			if (event_active(PS4_TOUCH2) && get_port(PS4_TOUCH2) == RS_Port)
-			{
-				set_val(PS4_TOUCH2, 0.0);
-				combo_run(NextTarget);
-			}
-			else if (get_actual(PS4_TOUCH2) && get_port(PS4_TOUCH2) == RS_Port)
-			{
-				set_val(PS4_TOUCH2, 0.0);
-			}
-			
-			//	Right
-			if (event_active(PS4_R3) && get_port(PS4_R3) == RS_Port)
-			{
-				set_val(PS4_R3, 0.0);
-				combo_run(NextHostile);
-			}
-			else if (get_actual(PS4_R3) && get_port(PS4_R3) == RS_Port)
-			{
-				set_val(PS4_R3, 0.0);
-			}
-			
-			//	Up
-			if (event_active(PS4_L3) && get_port(PS4_L3) == RS_Port)
-			{
-				set_val(PS4_L3, 0.0);
-				combo_run(MostHostile);
-			}
-			else if (get_actual(PS4_L3) && get_port(PS4_L3) == RS_Port)
-			{
-				set_val(PS4_L3, 0.0);
-			}
-			
-			//	Down
-			if (event_active(BUTTON_1) && get_port(BUTTON_1) == RS_Port)
-			{
-				set_val(BUTTON_1, 0.0);
-				combo_run(CycleSubTarget);
-			}
-			else if (get_actual(BUTTON_1) && get_port(BUTTON_1) == RS_Port)
-			{
-				set_val(BUTTON_1, 0.0);
-			}
-		}
-
-main {	// Left Stick Combos
-		//	Trigger - disable while GaussCombo is running
-		if (get_actual(PS4_L1) && get_port(PS4_L1) && GaussCombo)
-		{
-			inhibit(PS4_L1, 200);
-		}
-		
-		//	Index
-		if (event_active(PS4_R1) && get_port(PS4_R1) == LS_Port)
-		{
-			set_val(PS4_R1, 0.0);
-			combo_run(SR_on);
-		}
-		else if (get_actual(PS4_R1) && get_port(PS4_R1) == LS_Port)
-		{
-			set_val(PS4_R1, 0.0);
-		}
-		
-		//	Rapid Fire Trigger Push
-		if (get_actual(PS4_TOUCH2Y) && get_port(PS4_TOUCH2Y) == LS_Port && !LSRF_active)
-		{
-			set_val(PS4_TOUCH2Y, 0.0);
-			combo_run(HeatSink);
-			LSRF_active = 1;
-		}
-		else if	(get_actual(PS4_TOUCH2Y) && get_port(PS4_TOUCH2Y) == LS_Port && LSRF_active)
-		{
-			set_val(PS4_TOUCH2Y, 0.0);
-		}
-		else if (is_active(PS4_TOUCH2Y) == 0 && LSRF_active)
-		{
-			LSRF_active = 0;
-		}
-		
-		//	Pinkie
-		if (event_active(PS4_OPTIONS) && get_port(PS4_OPTIONS) == LS_Port)
-		{
-			set_val(PS4_OPTIONS, 0.0);
-			combo_run(Headlook);
-			HeadlookMode = !HeadlookMode;	// Toggle headlook mode boolean so rapid pips can be disabled while headlook mode is active
-		}
-		else if (get_actual(PS4_OPTIONS) && get_port(PS4_OPTIONS) == LS_Port)
-		{
-			set_val(PS4_OPTIONS, 0.0);
-		}
-		
-		//	Red Thumb
-		if (get_actual(PS4_TOUCH) && get_port(PS4_TOUCH) == LS_Port)
-		{
-			set_val(PS4_TOUCH, 0.0);
-			combo_run(Boost);
-		}
-		
-		//	Left Hat
-			//	Left
-			if (event_active(PS4_TOUCH2) && get_port(PS4_TOUCH2) == LS_Port)
-			{
-				set_val(PS4_TOUCH2, 0.0);
-				combo_run(GalaxyMap);
-			}
-			else if (get_actual(PS4_TOUCH2) && get_port(PS4_TOUCH2) == LS_Port)
-			{
-				set_val(PS4_TOUCH2, 0.0);
-			}
-			
-			//	Right
-			if (event_active(PS4_R3) && get_port(PS4_R3) == LS_Port)
-			{
-				set_val(PS4_R3, 0.0);
-				combo_run(CockpitMode);
-			}
-			else if (get_actual(PS4_R3) && get_port(PS4_R3) == LS_Port)
-			{
-				set_val(PS4_R3, 0.0);
-			}
-			
-			//	Up
-			if (event_active(PS4_L3) && get_port(PS4_L3) == LS_Port)
-			{
-				set_val(PS4_L3, 0.0);
-				combo_run(Hyperspace);
-			}
-			else if (get_actual(PS4_L3) && get_port(PS4_L3) == LS_Port)
-			{
-				set_val(PS4_L3, 0.0);
-			}
-			
-			//	Down
-			if (event_active(BUTTON_21) && get_port(BUTTON_21) == LS_Port)
-			{
-				set_val(BUTTON_21, 0.0);
-				combo_run(SuperCruise);
-			}
-			else if (get_actual(BUTTON_21) && get_port(BUTTON_21) == LS_Port)
-			{
-				set_val(BUTTON_21, 0.0);
-			}
-		
-		//	Left Stick Shaft Hat Combos
-			//	Push 
-			if (get_actual(PS4_TOUCH2X) && get_port(PS4_TOUCH2X) == LS_Port && !LSShaftPush_active)
-			{
-				set_val(PS4_TOUCH2X, 0.0);
-				combo_run(OrbitLines);
-				LSShaftPush_active = 1;
-			}
-			else if	(get_actual(PS4_TOUCH2X) && get_port(PS4_TOUCH2X) == LS_Port && LSShaftPush_active)
-			{
-				set_val(PS4_TOUCH2Y, 0.0);
-			}
-			else if (is_active(PS4_TOUCH2X) == 0 && LSShaftPush_active)
-			{
-				LSShaftPush_active = 0;
-			}
-			
-			//	Left
-			if (event_active(PADDLE_4) && get_port(PADDLE_4) == LS_Port)
-			{
-				set_val(PADDLE_4, 0.0);
-				combo_run(Lights);
-			}
-			else if (get_actual(PADDLE_4) && get_port(PADDLE_4) == LS_Port)
-			{
-				set_val(PADDLE_4, 0.0);
-			}
-			
-			//	Right
-			if (event_active(PADDLE_2) && get_port(PADDLE_2) == LS_Port)
-			{
-				set_val(PADDLE_2, 0.0);
-				combo_run(NightVision);
-			}
-			else if (get_actual(PADDLE_2) && get_port(PADDLE_2) == LS_Port)
-			{
-				set_val(PADDLE_2, 0.0);
-			}
-			
-			//	Up
-			if (event_active(PADDLE_1) && get_port(PADDLE_1) == LS_Port)
-			{
-				set_val(PADDLE_1, 0.0);
-				combo_run(CargoHatch);
-			}
-			else if (get_actual(PADDLE_1) && get_port(PADDLE_1) == LS_Port)
-			{
-				set_val(PADDLE_1, 0.0);
-			}
-			
-			//	Down
-			if (event_active(PADDLE_3) && get_port(PADDLE_3) == LS_Port)
-			{
-				set_val(PADDLE_3, 0.0);
-				combo_run(LGear);
-			}
-			else if (get_actual(PADDLE_3) && get_port(PADDLE_3) == LS_Port)
-			{
-				set_val(PADDLE_3, 0.0);
-			}
+	if (get_actual(PS4_LEFT) && get_port(PS4_LEFT) == LS_Port)
+	{
+		set_val(PS4_LEFT, 0.0);
+		combo_run(HL_Left);
+	} 
+	
+	//	Hat Up
+	if (check_active(PS4_UP, tHold) && get_port(PS4_UP) == RS_Port)
+	{
+		set_val(PS4_UP, 0.0);
+		combo_run(RapidUp);
+	}
+	
+	if (get_actual(PS4_UP) && get_port(PS4_UP) == LS_Port)
+	{
+		set_val(PS4_UP, 0.0);
+		combo_run(HL_Up);
+	}
+	
+	//	Hat Right
+	if (check_active(PS4_RIGHT, tHold) && get_port(PS4_RIGHT) == RS_Port)
+	{
+		set_val(PS4_RIGHT, 0.0);
+		combo_run(RapidRight);
+	}
+	
+	if (get_actual(PS4_RIGHT) && get_port(PS4_RIGHT) == LS_Port)
+	{
+		set_val(PS4_RIGHT, 0.0);
+		combo_run(HL_Right);
+	}
+	
+	//	Hat Down
+	if (get_actual(PS4_DOWN) && get_port(PS4_DOWN) == LS_Port)
+	{
+		set_val(PS4_DOWN, 0.0);
+		combo_run(HL_Down);
+	}
 }
 
-//	Combo Defines
-	//	Gauss Combo Displays
-		//	State 1
-		combo GState1{
-			display_overlay(_G_,900);
-			wait(910);
-			display_overlay(_1_,900);
-			wait(910);
-		}
-		
-		//	State 1 while in Headlook Mode
-		combo GState1HL{
-			display_overlay(_G_ | BOTTOM_DOT,900);
-			wait(910);
-			display_overlay(_1_ | BOTTOM_DOT,900);
-			wait(910);
-		}
-		
-		//	State 2
-		combo GState2{
-			display_overlay(_G_,900);
-			wait(910);
-			display_overlay(_2_,900);
-			wait(910);
-		}
-		
-		//	State 2 while in Headlook Mode
-		combo GState2HL{
-			display_overlay(_G_ | BOTTOM_DOT,900);
-			wait(910);
-			display_overlay(_2_ | BOTTOM_DOT,900);
-			wait(910);
-		}
-		
-		//	State 3
-		combo GState3{
-			display_overlay(_G_,900);
-			wait(910);
-			display_overlay(_3_,900);
-			wait(910);
-		}
-		
-		//	State 3 while in Headlook Mode
-		combo GState3HL{
-				display_overlay(_G_ | BOTTOM_DOT,900);
-				wait(910);
-				display_overlay(_3_ | BOTTOM_DOT,900);
-				wait(910);
-			}
-			
-	//	Headlook Mode Display
-		combo HLDisplay{
-				display_overlay(_H_,900);
-				wait(910);
-				display_overlay(_L_,900);
-				wait(910);
-			}
-			
-	//	Port Status
-		//	RS is Port 2
-		combo RSPort2{
-			display_overlay(_r_,600);
-			wait(610);
-			display_overlay(_S_,600);
-			wait(610);
-			display_overlay(_2_,600);
-			wait(610);
-		}
-		
-		//	RS is Port 3
-		combo RSPort3{
-				display_overlay(_r_,600);
-				wait(610);
-				display_overlay(_S_,600);
-				wait(610);
-				display_overlay(_3_,600);
-				wait(610);
-			}
-	
-	//	Rapid Pip Combos
-		//	Rapid Sys Pips
-		combo RapidLeft{
-			set_val(PS4_LEFT, 100);
-			wait(45);
-			set_val(PS4_LEFT, 0);
-			wait(60);
-		}
-		
-		//	Rapid Eng Pips
-		combo RapidUp{
-			set_val(PS4_UP, 100);
-			wait(45);
-			set_val(PS4_UP, 0);
-			wait(60);
-		}
-		
-		//	Rapid Wep Pips
-		combo RapidRight{
-				set_val(PS4_RIGHT, 100);
-				wait(45);
-				set_val(PS4_RIGHT, 0);
-				wait(60);
-			}
-			
-	//	Headlook Pips
-		//	Left Pips while in Headlook Mode: Cross + D-Pad Left
-		combo HLRapidLeft{
-			set_val(PS4_CROSS, 100);
-			wait(45);
-			set_val(PS4_CROSS, 100);
-			set_val(PS4_LEFT, 100);
-			wait(45);
-			set_val(PS4_CROSS, 0);
-			set_val(PS4_LEFT, 0);
-			wait(tDelayBtnrelease);
-		}
-		
-		//	Up Pips while in Headlook Mode: Cross + D-Pad Up
-		combo HLRapidUp{
-			set_val(PS4_CROSS, 100);
-			wait(45);
-			set_val(PS4_CROSS, 100);
-			set_val(PS4_UP, 100);
-			wait(45);
-			set_val(PS4_CROSS, 0);
-			set_val(PS4_UP, 0);
-			wait(tDelayBtnrelease);
-		}
-		
-		//	Right Pips while in Headlook Mode: Cross + D-Pad Right
-		combo HLRapidRight{
-			set_val(PS4_CROSS, 100);
-			wait(45);
-			set_val(PS4_CROSS, 100);
-			set_val(PS4_RIGHT, 100);
-			wait(45);
-			set_val(PS4_CROSS, 0);
-			set_val(PS4_RIGHT, 0);
-			wait(tDelayBtnrelease);
-		}
-		
-		//	Down Pips while in Headlook Mode: Cross + D-Pad Down
-		combo HLRapidDown{
-			set_val(PS4_CROSS, 100);
-			wait(45);
-			set_val(PS4_CROSS, 100);
-			set_val(PS4_DOWN, 100);
-			wait(45);
-			set_val(PS4_CROSS, 0);
-			set_val(PS4_DOWN, 0);
-			wait(tDelayBtn);
-		}
-
-	//	Flight Assist Toggle: Touch Pad Lower Left + D-Pad Down
-	combo FA_toggle{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_DOWN, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_DOWN, 0);
-	}
-	
-	//	Chaff: Cross + Touch Pad Lower Left + D-Pad Down
-	combo Chaff{
-		set_val(PS4_CROSS, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_CROSS, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_CROSS, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_DOWN, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_CROSS, 0.0);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_DOWN, 0);
-	}
-
-	//	Toggle Hardpoints: Touch Pad Lower Left + D-Pad Up
-	combo Hardpoints{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_UP, 100);
-		wait(tDelayBtnrelease); 
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_UP, 0);
-	}
-	
-	//	Cycle Cockpit Mode: Circle + Touch Pad Lower Left + D-Pad Up
-	combo CockpitMode{
-		set_val(PS4_CIRCLE, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_CIRCLE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_CIRCLE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_UP, 100);
-		wait(tDelayBtnrelease); 
-		set_val(PS4_CIRCLE, 0.0);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_UP, 0);
-	}
-
-	//	Select Target Ahead: Touch Pad Lower Left + D-Pad Right
-	combo SelectTargetAhead{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_RIGHT, 100);
-		wait(tDelayBtnrelease); 
-		set_val(PS4_TOUCH, 0); 
-		set_val(PS4_RIGHT, 0);
-	}
-	
-	//	Select Next Plotted System: Square + Touch Pad Lower Left + D-Pad Right
-	combo SelectNextSystem{
-		set_val(PS4_SQUARE, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_SQUARE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_SQUARE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_RIGHT, 100);
-		wait(tDelayBtnrelease); 
+main {	//	Right Stick Combos and Assignments
+	//	Trigger
+	if (get_actual(PS4_SQUARE) && get_port(PS4_SQUARE) == RS_Port && !GaussCombo)
+	{
 		set_val(PS4_SQUARE, 0.0);
-		set_val(PS4_TOUCH, 0); 
-		set_val(PS4_RIGHT, 0);
+		set_val(PS4_R1, get_actual(PS4_SQUARE));
 	}
-		
-	//	Gauss Combo: Right Trigger then Left trigger with precise timing
-	combo GaussCombo{
-			set_val(PS4_R1, 0);
-			wait(5);
-			set_val(PS4_R1, 100);
-			wait(tTrigger1);
-			set_val(PS4_R1, 100);
-			set_val(PS4_L1, 100);
-			wait(tTrigger2);
-			set_val(PS4_R1, 0);
-			set_val(PS4_L1, 100);
-			wait(tTrigger1);
-			set_val(PS4_R1, 0);
-			set_val(PS4_L1, 0);
-			wait(tDwellGauss);
-		}
+	else if (get_actual(PS4_SQUARE) && get_port(PS4_SQUARE) == RS_Port && GaussCombo)
+	{
+		set_val(PS4_SQUARE, 0.0);
+	}
+	
+	//	2nd Stage Trigger -- disable
+	if (get_actual(PS4_CROSS) && get_port(PS4_CROSS) == RS_Port)
+	{
+		set_val(PS4_CROSS, 0.0);
+	}
+	
+	//	Index
+	if (event_active(PS4_TRIANGLE) && get_port(PS4_TRIANGLE) == RS_Port)
+	{
+		set_val(PS4_TRIANGLE, 0.0);
+		combo_run(Chaff);
+	}
+	else if (get_actual(PS4_TRIANGLE) && get_port(PS4_TRIANGLE) == RS_Port)
+	{
+		set_val(PS4_TRIANGLE, 0.0);	
+	}
+	
+	//	Pinkie
+	if (event_active(PS4_L1) && get_port(PS4_L1) == RS_Port)
+	{
+		set_val(PS4_L1, 0.0);
+		combo_run(Hardpoints);
+	}
+	else if (get_actual(PS4_L1) && get_port(PS4_L1) == RS_Port)
+	{
+		set_val(PS4_L1, 0.0);
+	}
+	
+	//	Red Thumb
+	if (get_actual(PS4_CIRCLE) && get_port(PS4_CIRCLE) == RS_Port && !RSComboMode)
+	{
+		set_val(PS4_CIRCLE, 0.0);
+		set_val(PS4_L1, get_actual(PS4_CIRCLE));
+	}
+	else if (get_actual(PS4_CIRCLE) && get_port(PS4_CIRCLE) == RS_Port && RSComboMode)
+	{
+		set_val(PS4_CIRCLE, 0.0);
+		combo_run(GaussCombo);
+	}
+	else if (check_release(PS4_CIRCLE, 20) && RSComboMode)
+	{
+		set_val(PS4_CIRCLE, 0.0);
+		combo_stop(GaussCombo);
+	}
+	
+	//	Shaft Button 
+	if (event_active(PADDLE_1) && get_port(PADDLE_1) == RS_Port)
+	{
+		set_val(PADDLE_1, 0.0);
+		combo_run(FA_toggle);
+	}
 	
 	//	Center Hat
-		//	Previous Firegroup: Touch Pad Upper Left + D-Pad Left
-		combo Prev_FG{
-			set_val(PS4_TOUCH1, 100.0);
-			set_val(PS4_TOUCH1X, -70.0); 
-			set_val(PS4_TOUCH1Y, -30.0); 
-			set_val(PS4_TOUCH, 100.0);
-			set_val(PS4_TOUCH2X, 0.0);
-			set_val(PS4_TOUCH2Y, 0.0);
-			wait(tDelayBtn);
-			set_val(PS4_TOUCH1, 100.0);
-			set_val(PS4_TOUCH1X, -70.0); 
-			set_val(PS4_TOUCH1Y, -30.0); 
-			set_val(PS4_TOUCH, 100.0);
-			set_val(PS4_TOUCH2X, 0.0);
-			set_val(PS4_TOUCH2Y, 0.0);
-			set_val(PS4_LEFT, 100);
-			wait(tDelayBtnrelease); 
-			set_val(PS4_TOUCH, 0.0);
-			set_val(PS4_LEFT, 0);
-		}
-		
-		//	Next Firegroup: Touch Pad Upper Left + D-Pad Right
-		combo Next_FG{
-			set_val(PS4_TOUCH1, 100.0);
-			set_val(PS4_TOUCH1X, -70.0); 
-			set_val(PS4_TOUCH1Y, -30.0); 
-			set_val(PS4_TOUCH, 100.0);
-			set_val(PS4_TOUCH2X, 0.0);
-			set_val(PS4_TOUCH2Y, 0.0);
-			wait(tDelayBtn);
-			set_val(PS4_TOUCH1, 100.0);
-			set_val(PS4_TOUCH1X, -70.0); 
-			set_val(PS4_TOUCH1Y, -30.0); 
-			set_val(PS4_TOUCH, 100.0);
-			set_val(PS4_TOUCH2X, 0.0);
-			set_val(PS4_TOUCH2Y, 0.0);
-			set_val(PS4_RIGHT, 100);
-			wait(tDelayBtnrelease); 
-			set_val(PS4_TOUCH, 0.0);
-			set_val(PS4_RIGHT, 0);
-		}
-		
-	//	Galaxy Map
-	combo GalaxyMap{
-		set_val(PS4_TRIANGLE, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_TRIANGLE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0); 
-		set_val(PS4_TOUCH1Y, -30.0); 
-		set_val(PS4_TOUCH, 100.0);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TRIANGLE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0); 
-		set_val(PS4_TOUCH1Y, -30.0); 
-		set_val(PS4_TOUCH, 100.0);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_LEFT, 100);
-		wait(tDelayBtnrelease); 
-		set_val(PS4_TRIANGLE, 0.0);
+	//	Left
+	if (event_active(PS4_TOUCH) && get_port(PS4_TOUCH) == RS_Port)
+	{
 		set_val(PS4_TOUCH, 0.0);
-		set_val(PS4_LEFT, 0);
+		combo_run(Prev_FG);
 	}
-	
-	//	Hyperspace: Touch Pad Upper Left + D-Pad Up
-	combo Hyperspace{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0); 
-		set_val(PS4_TOUCH1Y, -30.0); 
-		set_val(PS4_TOUCH, 100.0);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0); 
-		set_val(PS4_TOUCH1Y, -30.0); 
-		set_val(PS4_TOUCH, 100.0);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_UP, 100);
-		wait(tDelayBtnrelease);
+	else if (get_actual(PS4_TOUCH) && get_port(PS4_TOUCH) == RS_Port)
+	{
 		set_val(PS4_TOUCH, 0.0);
-		set_val(PS4_UP, 0);
 	}
 	
-	//	SuperCruise: Touch Pad Upper Left + D-Pad Down
-	combo SuperCruise{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0); 
-		set_val(PS4_TOUCH1Y, -30.0); 
-		set_val(PS4_TOUCH, 100.0);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0); 
-		set_val(PS4_TOUCH1Y, -30.0); 
-		set_val(PS4_TOUCH, 100.0);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_DOWN, 100);
-		wait(tDelayBtnrelease);
+	//	Right
+	if (event_active(PS4_SHARE) && get_port(PS4_SHARE) == RS_Port)
+	{
+		set_val(PS4_SHARE, 0.0);
+		combo_run(Next_FG);
+	}
+	else if (get_actual(PS4_SHARE) && get_port(PS4_SHARE) == RS_Port)
+	{
+		set_val(PS4_SHARE, 0.0);
+	}
+	
+	//	Up
+	if (event_active(PS4_R1) && get_port(PS4_R1) == RS_Port)
+	{
+		set_val(PS4_R1, 0.0);
+		combo_run(SelectTargetAhead);
+	}
+	else if (get_actual(PS4_R1) && get_port(PS4_R1) == RS_Port)
+	{
+		set_val(PS4_R1, 0.0);
+	}
+	
+	//	Down
+	if (event_active(BUTTON_19) && get_port(BUTTON_19) == RS_Port)
+	{
+		set_val(BUTTON_19, 0.0);
+		combo_run(SelectNextSystem);
+	}
+	else if (get_actual(BUTTON_19) && get_port(BUTTON_19) == RS_Port)
+	{
+		set_val(BUTTON_19, 0.0);
+	}
+	
+	//	Right Hat			
+	//	Left
+	if (event_active(PS4_TOUCH2) && get_port(PS4_TOUCH2) == RS_Port)
+	{
+		set_val(PS4_TOUCH2, 0.0);
+		combo_run(NextTarget);
+	}
+	else if (get_actual(PS4_TOUCH2) && get_port(PS4_TOUCH2) == RS_Port)
+	{
+		set_val(PS4_TOUCH2, 0.0);
+	}
+	
+	//	Right
+	if (event_active(PS4_R3) && get_port(PS4_R3) == RS_Port)
+	{
+		set_val(PS4_R3, 0.0);
+		combo_run(NextHostile);
+	}
+	else if (get_actual(PS4_R3) && get_port(PS4_R3) == RS_Port)
+	{
+		set_val(PS4_R3, 0.0);
+	}
+	
+	//	Up
+	if (event_active(PS4_L3) && get_port(PS4_L3) == RS_Port)
+	{
+		set_val(PS4_L3, 0.0);
+		combo_run(MostHostile);
+	}
+	else if (get_actual(PS4_L3) && get_port(PS4_L3) == RS_Port)
+	{
+		set_val(PS4_L3, 0.0);
+	}
+	
+	//	Down
+	if (event_active(BUTTON_1) && get_port(BUTTON_1) == RS_Port)
+	{
+		set_val(BUTTON_1, 0.0);
+		combo_run(CycleSubTarget);
+	}
+	else if (get_actual(BUTTON_1) && get_port(BUTTON_1) == RS_Port)
+	{
+		set_val(BUTTON_1, 0.0);
+	}
+}
+
+main {	//	Left Stick Combos
+	//	Trigger - disable while GaussCombo is running
+	if (get_actual(PS4_L1) && get_port(PS4_L1) == LS_Port && GaussCombo)
+	{
+		set_val(PS4_L1, 0.0);
+		//inhibit(PS4_L1, 200);
+	} else if(get_actual(PS4_L1) && get_port(PS4_L1) == LS_Port) {
+		set_val(PS4_L1, 0.0);
+		combo_run(CargoHatch);
+	}
+	
+	//	Index
+	if (event_active(PS4_R1) && get_port(PS4_R1) == LS_Port)
+	{
+		set_val(PS4_R1, 0.0);
+		combo_run(SR_on);
+	}
+	else if (get_actual(PS4_R1) && get_port(PS4_R1) == LS_Port)
+	{
+		set_val(PS4_R1, 0.0);
+	}
+	
+	//	Rapid Fire Trigger Push
+	if (get_actual(PS4_TOUCH1Y) && get_port(PS4_TOUCH1Y) == LS_Port && !LSRF_active)
+	{
+		set_val(PS4_TOUCH1Y, 0.0);
+		combo_run(HeatSink);
+		LSRF_active = 1;
+	}
+	else if	(get_actual(PS4_TOUCH1Y) && get_port(PS4_TOUCH1Y) == LS_Port && LSRF_active)
+	{
+		set_val(PS4_TOUCH1Y, 0.0);
+	}
+	else if (is_active(PS4_TOUCH1Y) == 0 && LSRF_active)
+	{
+		LSRF_active = 0;
+	}
+	
+	//	Pinkie
+	if (event_active(PS4_OPTIONS) && get_port(PS4_OPTIONS) == LS_Port)
+	{
+		set_val(PS4_OPTIONS, 0.0);
+		combo_run(Headlook);
+		HeadlookMode = !HeadlookMode;	// Toggle headlook mode boolean so rapid pips can be disabled while headlook mode is active
+	}
+	else if (get_actual(PS4_OPTIONS) && get_port(PS4_OPTIONS) == LS_Port)
+	{
+		set_val(PS4_OPTIONS, 0.0);
+	}
+	
+	//	Red Thumb
+	if (get_actual(PS4_TOUCH) && get_port(PS4_TOUCH) == LS_Port)
+	{
 		set_val(PS4_TOUCH, 0.0);
-		set_val(PS4_DOWN, 0);
+		combo_run(Boost);
 	}
 	
-	//	Next Target: Touch Pad Upper Right + D-Pad Left
-	combo NextTarget{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_LEFT, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_LEFT, 0);
+	//	Left Hat
+	//	Left
+	if (event_active(PS4_TOUCH2) && get_port(PS4_TOUCH2) == LS_Port)
+	{
+		set_val(PS4_TOUCH2, 0.0);
+		combo_run(GalaxyMap);
+	}
+	else if (get_actual(PS4_TOUCH2) && get_port(PS4_TOUCH2) == LS_Port)
+	{
+		set_val(PS4_TOUCH2, 0.0);
 	}
 	
-	//	Next Hostile: Touch Pad Upper Right + D-Pad Right
-	combo NextHostile{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_RIGHT, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_RIGHT, 0);
+	//	Right
+	if (event_active(PS4_R3) && get_port(PS4_R3) == LS_Port)
+	{
+		set_val(PS4_R3, 0.0);
+		combo_run(CockpitMode);
+	}
+	else if (get_actual(PS4_R3) && get_port(PS4_R3) == LS_Port)
+	{
+		set_val(PS4_R3, 0.0);
 	}
 	
-	//	Most Hostile: Cross + Touch Pad Upper Right + D-Pad Right
-	combo MostHostile{
-		set_val(PS4_CROSS, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_CROSS, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_CROSS, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_RIGHT, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_CROSS, 0.0);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_RIGHT, 0);
+	//	Up
+	if (event_active(PS4_L3) && get_port(PS4_L3) == LS_Port)
+	{
+		set_val(PS4_L3, 0.0);
+		combo_run(Hyperspace);
+	}
+	else if (get_actual(PS4_L3) && get_port(PS4_L3) == LS_Port)
+	{
+		set_val(PS4_L3, 0.0);
 	}
 	
-	//	Cycle Subsystem: Cross + Touch Pad Upper Right + D-Pad Left
-	combo CycleSubTarget{
-		set_val(PS4_CROSS, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_CROSS, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
+	//	Down
+	if (event_active(BUTTON_21) && get_port(BUTTON_21) == LS_Port)
+	{
+		set_val(BUTTON_21, 0.0);
+		combo_run(SuperCruise);
+	}
+	else if (get_actual(BUTTON_21) && get_port(BUTTON_21) == LS_Port)
+	{
+		set_val(BUTTON_21, 0.0);
+	}
+	
+	//	Left Stick Shaft Hat Combos
+	//	Push 
+	/*	What button is this using?
+	if (get_actual(PS4_TOUCH2X) && get_port(PS4_TOUCH2X) == LS_Port && !LSShaftPush_active)
+	{
 		set_val(PS4_TOUCH2X, 0.0);
+		combo_run(OrbitLines);
+		LSShaftPush_active = 1;
+	}
+	else if	(get_actual(PS4_TOUCH2X) && get_port(PS4_TOUCH2X) == LS_Port && LSShaftPush_active)
+	{
 		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_CROSS, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0); 
-		set_val(PS4_TOUCH1Y, -30.0);
-		set_val(PS4_TOUCH, 100); 	
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_LEFT, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_CROSS, 0.0);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_LEFT, 0);
+	}
+	else if (is_active(PS4_TOUCH2X) == 0 && LSShaftPush_active)
+	{
+		LSShaftPush_active = 0;
+	} */
+	
+	//	Left
+	if (event_active(PADDLE_4) && get_port(PADDLE_4) == LS_Port)
+	{
+		set_val(PADDLE_4, 0.0);
+		combo_run(Lights);
+	}
+	else if (get_actual(PADDLE_4) && get_port(PADDLE_4) == LS_Port)
+	{
+		set_val(PADDLE_4, 0.0);
+	}
+	
+	//	Right
+	if (event_active(PADDLE_2) && get_port(PADDLE_2) == LS_Port)
+	{
+		set_val(PADDLE_2, 0.0);
+		combo_run(NightVision);
+	}
+	else if (get_actual(PADDLE_2) && get_port(PADDLE_2) == LS_Port)
+	{
+		set_val(PADDLE_2, 0.0);
+	}
+	
+	//	Up
+	if (event_active(PADDLE_1) && get_port(PADDLE_1) == LS_Port)
+	{
+		set_val(PADDLE_1, 0.0);
+		// combo_run(CargoHatch);
+	}
+	else if (get_actual(PADDLE_1) && get_port(PADDLE_1) == LS_Port)
+	{
+		set_val(PADDLE_1, 0.0);
+	}
+	
+	//	Down
+	if (event_active(PADDLE_3) && get_port(PADDLE_3) == LS_Port)
+	{
+		set_val(PADDLE_3, 0.0);
+		combo_run(LGear);
+	}
+	else if (get_actual(PADDLE_3) && get_port(PADDLE_3) == LS_Port)
+	{
+		set_val(PADDLE_3, 0.0);
+	}
+}
+
+//------------------------LED Display------------------------------
+//	Gauss Combo Displays
+	//	State 1
+	combo GState1{
+		display_overlay(_G_,900);
+		wait(910);
+		display_overlay(_1_,900);
+		wait(910);
 	}
 
-	//	Silent Running: Circle + Touch Pad Lower Left + D-Pad Down
-	combo SR_on{
-		set_val(PS4_CIRCLE, 100);
-		wait(tDelayBtn);
-		set_val(PS4_CIRCLE, 100);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_CIRCLE, 100);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_DOWN, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_CIRCLE, 0); 
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_DOWN, 0);
+	//	State 1 while in Headlook Mode
+	combo GState1HL{
+		display_overlay(_G_ | BOTTOM_DOT,900);
+		wait(910);
+		display_overlay(_1_ | BOTTOM_DOT,900);
+		wait(910);
 	}
 
-	//	Heat Sink: Touch Pad Lower Left + D-Pad Left
-	combo HeatSink{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_LEFT, 100.0);
-		wait(tDelayBtnrelease); 
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_LEFT, 0);
-	}
-	
-	//	Headlook Mode: Triangle + Touch Pad Lower Left + D-Pad Up
-	combo Headlook{
-		set_val(PS4_TRIANGLE, 100);
-		wait(tDelayBtn);
-		set_val(PS4_TRIANGLE, 100);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TRIANGLE, 100);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_UP, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TRIANGLE, 0);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_UP, 0);
+	//	State 2
+	combo GState2{
+		display_overlay(_G_,900);
+		wait(910);
+		display_overlay(_2_,900);
+		wait(910);
 	}
 
-	//	Boost: Circle + Touch Pad Lower Left + D-Pad Right
-	combo Boost{
-		set_val(PS4_CIRCLE, 100);
-		wait(tDelayBtn);
-		set_val(PS4_CIRCLE, 100);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_CIRCLE, 100);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_RIGHT, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_CIRCLE, 0);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_RIGHT, 0);
+	//	State 2 while in Headlook Mode
+	combo GState2HL{
+		display_overlay(_G_ | BOTTOM_DOT,900);
+		wait(910);
+		display_overlay(_2_ | BOTTOM_DOT,900);
+		wait(910);
 	}
 
-	//	Lights: Touch Pad Lower Right + D-Pad Left
-	combo Lights{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_LEFT, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_LEFT, 0);
-	}
-	
-	//	Night Vision: Touch Pad Lower Right + D-Pad Right
-	combo NightVision{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_RIGHT, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_RIGHT, 0);
-	}
-	
-	//	Cargo Hatch: Touch Pad Lower Right + D-Pad Up
-	combo CargoHatch{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_UP, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_UP, 0);
-	}
-	
-	//	Landing Gear: Touch Pad Lower Right + D-Pad Down
-	combo LGear{
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, 70.0);
-		set_val(PS4_TOUCH1Y, 30.0);
-		set_val(PS4_TOUCH, 100);
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_DOWN, 100);
-		wait(tDelayBtnrelease);
-		set_val(PS4_TOUCH, 0);
-		set_val(PS4_DOWN, 0);
+	//	State 3
+	combo GState3{
+		display_overlay(_G_,900);
+		wait(910);
+		display_overlay(_3_,900);
+		wait(910);
 	}
 
-	//	Orbit Lines: Touch Pad Lower Left + D-Pad Right
-	combo OrbitLines {
-		set_val(PS4_TRIANGLE, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_TRIANGLE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		wait(tDelayBtn);
-		set_val(PS4_TRIANGLE, 100.0);
-		set_val(PS4_TOUCH1, 100.0);
-		set_val(PS4_TOUCH1X, -70.0);
-		set_val(PS4_TOUCH1Y, 30.0); 
-		set_val(PS4_TOUCH, 100); 
-		set_val(PS4_TOUCH2X, 0.0);
-		set_val(PS4_TOUCH2Y, 0.0);
-		set_val(PS4_RIGHT, 100);
-		wait(tDelayBtnrelease); 
-		set_val(PS4_TRIANGLE, 0.0);
-		set_val(PS4_TOUCH, 0); 
-		set_val(PS4_RIGHT, 0);
+	//	State 3 while in Headlook Mode
+	combo GState3HL{
+		display_overlay(_G_ | BOTTOM_DOT,900);
+		wait(910);
+		display_overlay(_3_ | BOTTOM_DOT,900);
+		wait(910);
 	}
-	
-	//	Previous Tab: Square + D-Pad Left
-	combo Prev_Tab {
-		set_val(PS4_SQUARE, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_SQUARE, 100.0);
-		set_val(PS4_LEFT, 100.0);
-		wait(tDelayBtnrelease);
-		set_val(PS4_SQUARE, 0.0);
-		set_val(PS4_LEFT, 0.0);
-	}
-	
-	//	Next Tab: Square + D-Pad Right
-	combo Next_Tab {
-		set_val(PS4_SQUARE, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_SQUARE, 100.0);
-		set_val(PS4_RIGHT, 100.0);
-		wait(tDelayBtnrelease);
-		set_val(PS4_SQUARE, 0.0);
-		set_val(PS4_RIGHT, 0.0);
-	}
-	
-	//	Next Page: Square + D-Pad Up
-	combo Next_Page {
-		set_val(PS4_SQUARE, 100.0);
-		wait(tDelayBtn);
-		set_val(PS4_SQUARE, 100.0);
-		set_val(PS4_UP, 100.0);
-		wait(tDelayBtnrelease);
-		set_val(PS4_SQUARE, 0.0);
-		set_val(PS4_UP, 0.0);
-	}
-	
-	//	Previous Page: Square + D-Pad Down
-	combo Prev_Page {
-				set_val(PS4_SQUARE, 100.0);
-				wait(tDelayBtn);
-				set_val(PS4_SQUARE, 100.0);
-				set_val(PS4_DOWN, 100.0);
-				wait(tDelayBtnrelease);
-				set_val(PS4_SQUARE, 0.0);
-				set_val(PS4_DOWN, 0.0);
-			}	
+
+//	Headlook Mode Display
+combo HLDisplay{
+	display_overlay(_H_,900);
+	wait(910);
+	display_overlay(_L_,900);
+	wait(910);
+}
+
+//	Port Status
+//	RS is Port 2
+combo RSPort2{
+	display_overlay(_r_,600);
+	wait(610);
+	display_overlay(_S_,600);
+	wait(610);
+	display_overlay(_2_,600);
+	wait(610);
+}
+
+//	RS is Port 3
+combo RSPort3{
+	display_overlay(_r_,600);
+	wait(610);
+	display_overlay(_S_,600);
+	wait(610);
+	display_overlay(_3_,600);
+	wait(610);
+}
+
+//------------------------Rapid Pip Combos------------------------------
+//	Rapid Sys Pips
+combo RapidLeft{
+	set_val(PS4_LEFT, 100);
+	wait(45);
+	set_val(PS4_LEFT, 0);
+	wait(60);
+}
+
+//	Rapid Eng Pips
+combo RapidUp{
+	set_val(PS4_UP, 100);
+	wait(45);
+	set_val(PS4_UP, 0);
+	wait(60);
+}
+
+//	Rapid Wep Pips
+combo RapidRight{
+	set_val(PS4_RIGHT, 100);
+	wait(45);
+	set_val(PS4_RIGHT, 0);
+	wait(60);
+}
+
+//------------------------Headlook Pip Combos------------------------------
+//	Left Pips while in Headlook Mode: Cross + D-Pad Left
+combo HL_Left{
+	set_val(PS4_CROSS, 100);
+	wait(45);
+	set_val(PS4_CROSS, 100);
+	set_val(PS4_LEFT, 100);
+	wait(45);
+	set_val(PS4_CROSS, 0);
+	set_val(PS4_LEFT, 0);
+	wait(tDelayBtnrelease);
+}
+
+//	Up Pips while in Headlook Mode: Cross + D-Pad Up
+combo HL_Up{
+	set_val(PS4_CROSS, 100);
+	wait(45);
+	set_val(PS4_CROSS, 100);
+	set_val(PS4_UP, 100);
+	wait(45);
+	set_val(PS4_CROSS, 0);
+	set_val(PS4_UP, 0);
+	wait(tDelayBtnrelease);
+}
+
+//	Right Pips while in Headlook Mode: Cross + D-Pad Right
+combo HL_Right{
+	set_val(PS4_CROSS, 100);
+	wait(45);
+	set_val(PS4_CROSS, 100);
+	set_val(PS4_RIGHT, 100);
+	wait(45);
+	set_val(PS4_CROSS, 0);
+	set_val(PS4_RIGHT, 0);
+	wait(tDelayBtnrelease);
+}
+
+//	Down Pips while in Headlook Mode: Cross + D-Pad Down
+combo HL_Down{
+	set_val(PS4_CROSS, 100);
+	wait(45);
+	set_val(PS4_CROSS, 100);
+	set_val(PS4_DOWN, 100);
+	wait(45);
+	set_val(PS4_CROSS, 0);
+	set_val(PS4_DOWN, 0);
+	wait(tDelayBtn);
+}
+
+//	Flight Assist Toggle: Touch Pad Lower Left + D-Pad Down
+combo FA_toggle{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_DOWN, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_DOWN, 0);
+}
+
+//	Chaff: Cross + Touch Pad Lower Left + D-Pad Down
+combo Chaff{
+	set_val(PS4_CROSS, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_CROSS, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_CROSS, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_DOWN, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_CROSS, 0.0);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_DOWN, 0);
+}
+
+//	Toggle Hardpoints: Touch Pad Lower Left + D-Pad Up
+combo Hardpoints{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_UP, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_UP, 0);
+}
+
+//	Cycle Cockpit Mode: Circle + Touch Pad Lower Left + D-Pad Up
+combo CockpitMode{
+	set_val(PS4_CIRCLE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_CIRCLE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_CIRCLE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_UP, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_CIRCLE, 0.0);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_UP, 0);
+}
+
+//	Select Target Ahead: Touch Pad Lower Left + D-Pad Right
+combo SelectTargetAhead{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_TOUCH, 0); 
+	set_val(PS4_RIGHT, 0);
+}
+
+//	Select Next Plotted System: Square + Touch Pad Lower Left + D-Pad Right
+combo SelectNextSystem{
+	set_val(PS4_SQUARE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_SQUARE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_SQUARE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_SQUARE, 0.0);
+	set_val(PS4_TOUCH, 0); 
+	set_val(PS4_RIGHT, 0);
+}
+
+//------------------------Gause Combo------------------------------
+//	Gauss Combo: Right Trigger then Left trigger with precise timing
+combo GaussCombo{
+	set_val(PS4_R1, 0);
+	wait(5);
+	set_val(PS4_R1, 100);
+	wait(tTrigger1);
+	set_val(PS4_R1, 100);
+	set_val(PS4_L1, 100);
+	wait(tTrigger2);
+	set_val(PS4_R1, 0);
+	set_val(PS4_L1, 100);
+	wait(tTrigger1);
+	set_val(PS4_R1, 0);
+	set_val(PS4_L1, 0);
+	wait(tDwellGauss);
+}
+
+//------------------------Center Hat------------------------------
+//	Previous Firegroup: Touch Pad Upper Left + D-Pad Left
+combo Prev_FG{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_LEFT, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_TOUCH, 0.0);
+	set_val(PS4_LEFT, 0);
+}
+
+//	Next Firegroup: Touch Pad Upper Left + D-Pad Right
+combo Next_FG{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_TOUCH, 0.0);
+	set_val(PS4_RIGHT, 0);
+}
+
+//	Galaxy Map: Triangle + Touch Pad Upper Left + D-Pad Left
+combo GalaxyMap{
+	set_val(PS4_TRIANGLE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_LEFT, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_TRIANGLE, 0.0);
+	set_val(PS4_TOUCH, 0.0);
+	set_val(PS4_LEFT, 0);
+}
+
+//	Hyperspace: Touch Pad Upper Left + D-Pad Up
+combo Hyperspace{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_UP, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0.0);
+	set_val(PS4_UP, 0);
+}
+
+//	SuperCruise: Touch Pad Upper Left + D-Pad Down
+combo SuperCruise{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0); 
+	set_val(PS4_TOUCH1Y, -30.0); 
+	set_val(PS4_TOUCH, 100.0);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_DOWN, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0.0);
+	set_val(PS4_DOWN, 0);
+}
+
+//	Next Target: Touch Pad Upper Right + D-Pad Left
+combo NextTarget{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_LEFT, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_LEFT, 0);
+}
+
+//	Next Hostile: Touch Pad Upper Right + D-Pad Right
+combo NextHostile{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_RIGHT, 0);
+}
+
+//	Most Hostile: Cross + Touch Pad Upper Right + D-Pad Right
+combo MostHostile{
+	set_val(PS4_CROSS, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_CROSS, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_CROSS, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_CROSS, 0.0);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_RIGHT, 0);
+}
+
+//	Cycle Subsystem: Cross + Touch Pad Upper Right + D-Pad Left
+combo CycleSubTarget{
+	set_val(PS4_CROSS, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_CROSS, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_CROSS, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0); 
+	set_val(PS4_TOUCH1Y, -30.0);
+	set_val(PS4_TOUCH, 100); 	
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_LEFT, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_CROSS, 0.0);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_LEFT, 0);
+}
+
+//	Silent Running: Circle + Touch Pad Lower Left + D-Pad Down
+combo SR_on{
+	set_val(PS4_CIRCLE, 100);
+	wait(tDelayBtn);
+	set_val(PS4_CIRCLE, 100);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_CIRCLE, 100);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_DOWN, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_CIRCLE, 0); 
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_DOWN, 0);
+}
+
+//	Heat Sink: Touch Pad Lower Left + D-Pad Left
+combo HeatSink{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_LEFT, 100.0);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_LEFT, 0);
+}
+
+//	Headlook Mode: Triangle + Touch Pad Lower Left + D-Pad Up
+combo Headlook{
+	set_val(PS4_TRIANGLE, 100);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_UP, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TRIANGLE, 0);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_UP, 0);
+}
+
+//	Boost: Circle + Touch Pad Lower Left + D-Pad Right
+combo Boost{
+	set_val(PS4_CIRCLE, 100);
+	wait(tDelayBtn);
+	set_val(PS4_CIRCLE, 100);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_CIRCLE, 100);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_CIRCLE, 0);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_RIGHT, 0);
+}
+
+//	Lights: Touch Pad Lower Right + D-Pad Left
+combo Lights{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_LEFT, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_LEFT, 0);
+}
+
+//	Night Vision: Touch Pad Lower Right + D-Pad Right
+combo NightVision{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_RIGHT, 0);
+}
+
+//	Cargo Hatch: Touch Pad Lower Right + D-Pad Up
+combo CargoHatch{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_UP, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_UP, 0);
+}
+
+//	Landing Gear: Touch Pad Lower Right + D-Pad Down
+combo LGear{
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, 70.0);
+	set_val(PS4_TOUCH1Y, 30.0);
+	set_val(PS4_TOUCH, 100);
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_DOWN, 100);
+	wait(tDelayBtnrelease);
+	set_val(PS4_TOUCH, 0);
+	set_val(PS4_DOWN, 0);
+}
+
+//	Orbit Lines: Touch Pad Lower Left + D-Pad Right
+combo OrbitLines {
+	set_val(PS4_TRIANGLE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	wait(tDelayBtn);
+	set_val(PS4_TRIANGLE, 100.0);
+	set_val(PS4_TOUCH1, 100.0);
+	set_val(PS4_TOUCH1X, -70.0);
+	set_val(PS4_TOUCH1Y, 30.0); 
+	set_val(PS4_TOUCH, 100); 
+	set_val(PS4_TOUCH2X, 0.0);
+	set_val(PS4_TOUCH2Y, 0.0);
+	set_val(PS4_RIGHT, 100);
+	wait(tDelayBtnrelease); 
+	set_val(PS4_TRIANGLE, 0.0);
+	set_val(PS4_TOUCH, 0); 
+	set_val(PS4_RIGHT, 0);
+}
+
+//	Previous Tab: Square + D-Pad Left
+combo Prev_Tab {
+	set_val(PS4_SQUARE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_SQUARE, 100.0);
+	set_val(PS4_LEFT, 100.0);
+	wait(tDelayBtnrelease);
+	set_val(PS4_SQUARE, 0.0);
+	set_val(PS4_LEFT, 0.0);
+}
+
+//	Next Tab: Square + D-Pad Right
+combo Next_Tab {
+	set_val(PS4_SQUARE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_SQUARE, 100.0);
+	set_val(PS4_RIGHT, 100.0);
+	wait(tDelayBtnrelease);
+	set_val(PS4_SQUARE, 0.0);
+	set_val(PS4_RIGHT, 0.0);
+}
+
+//	Next Page: Square + D-Pad Up
+combo Next_Page {
+	set_val(PS4_SQUARE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_SQUARE, 100.0);
+	set_val(PS4_UP, 100.0);
+	wait(tDelayBtnrelease);
+	set_val(PS4_SQUARE, 0.0);
+	set_val(PS4_UP, 0.0);
+}
+
+//	Previous Page: Square + D-Pad Down
+combo Prev_Page {
+	set_val(PS4_SQUARE, 100.0);
+	wait(tDelayBtn);
+	set_val(PS4_SQUARE, 100.0);
+	set_val(PS4_DOWN, 100.0);
+	wait(tDelayBtnrelease);
+	set_val(PS4_SQUARE, 0.0);
+	set_val(PS4_DOWN, 0.0);
+}	
 
 // Stick response function
 fix32 stick_response(uint8 idx) {
-    const uint8 base[] = { 
-        0x00, 0x05, 0x0A, 0x0F, 0x14, 0x19, 0x1E, 0x23, 0x28, 0x2D, 0x32, 0x37, 
-        0x3C, 0x41, 0x46, 0x4B, 0x50, 0x55, 0x5A, 0x5F, 0x64 
-    };
-    const uint8 cc[] = { 
-        0x00, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x24, 0x27, 0x2A, 
-        0x2D, 0x2F, 0x32, 0x35, 0x38, 0x40, 0x49, 0x52, 0x64 
-    };
- 
-    fix32 value = get_actual(idx);
-    fix32 signal = (value >= 0.0 ? 1.0 : -1.0);
-    value = abs(value);
- 
-    uint8 i = min((uint8)value / 5, 19);
-    value = lerp((fix32)cc[i], (fix32)cc[i+1], (value - (fix32)base[i]) / 5.0);
- 
-    return(value * signal);
+	const uint8 base[] = { 
+		0x00, 0x05, 0x0A, 0x0F, 0x14, 0x19, 0x1E, 0x23, 0x28, 0x2D, 0x32, 0x37, 
+		0x3C, 0x41, 0x46, 0x4B, 0x50, 0x55, 0x5A, 0x5F, 0x64 
+	};
+	const uint8 cc[] = { 
+		0x00, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x24, 0x27, 0x2A, 
+		0x2D, 0x2F, 0x32, 0x35, 0x38, 0x40, 0x49, 0x52, 0x64 
+	};
+	
+	fix32 value = get_actual(idx);
+	fix32 signal = (value >= 0.0 ? 1.0 : -1.0);
+	value = abs(value);
+	
+	uint8 i = min((uint8)value / 5, 19);
+	value = lerp((fix32)cc[i], (fix32)cc[i+1], (value - (fix32)base[i]) / 5.0);
+	
+	return(value * signal);
 }
 
 // Function to find if there is a PS4 DS4 controller connected to Port 2
 bool find_DS4()
 {
-    uint8 status, protocol, device;
+	uint8 status, protocol, device;
 	
 	status = port_status(2, &protocol, &device);
 	if(status)
@@ -1444,4 +1449,22 @@ bool find_DS4()
 		}
 	}
 	return(0);
+}
+
+// Normalize & Ineterpolate
+
+fix32 Interpolate(fix32 val, fix32 valmin, fix32 valmax, fix32 newLow, fix32 newHigh) {
+	return (newHigh - newLow) * (val - 0.5 * (valmax + valmin)) / (valmax - valmin) + 0.5 * (newHigh + newLow);
+}
+
+fix32 Normalize(fix32 val, fix32 valmin, fix32 valmax, fix32 newLow, fix32 newHigh, fix32 midpoint) {
+	fix32 m = Interpolate(midpoint, valmin, valmax, newLow, newHigh);
+	if (val < m) {
+		return Interpolate(val, valmin, m, newLow, midpoint);
+	} else if (val > m) {
+		return Interpolate(val, m, valmax, midpoint, newHigh);
+	} else {
+		return m;
+	}
+	return 0.0;
 }
